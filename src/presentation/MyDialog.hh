@@ -28,8 +28,7 @@ class PRESENTATION_API MyDialog : public QDockWidget {
 public:
     explicit MyDialog(QWidget* parent = nullptr);
 
-    // Convenience accessor
-    QString text() const;
+    [[nodiscard]] QString text() const;
 
 signals:
     void accepted();

@@ -7,8 +7,8 @@ set(CMAKE_AUTOMOC ON)
 
 SET(CADLIB_DIR "C:/source/cadlib")
 
-set(CADWORK_VERSION 33)
-set(QT_VERSION 6)
+set(CADWORK_VERSION 32)
+set(QT_VERSION 5)
 
 set(CMAKE_PREFIX_PATH "${CADLIB_DIR}\\3rdParty\\v_${CADWORK_VERSION}.0\\Qt\\x64\\lib\\cmake\\Qt${QT_VERSION}")
 

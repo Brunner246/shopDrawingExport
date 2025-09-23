@@ -3,12 +3,14 @@
 
 #include <QPointer>
 #include <QMainWindow>
+#include <QDebug>
 
 #include <utility>
 #include <iostream>
 #include <optional>
 #include <ranges>
 #include <algorithm>
+#include <thread>
 
 #include "MyDialog.hh"
 
@@ -38,29 +40,26 @@ Action buildAndQuerySelectedMenuAction(CwAPI3D::Interfaces::ICwAPI3DMenuControll
     return static_cast<Action>(selectedItemIndex);
 }
 
+bool temp_clipboards_exist()
+{
+    namespace fs = std::filesystem;
+    const fs::path temp = fs::temp_directory_path();
+
+    const fs::path f8 = temp / "clipboard_008.2dc";
+    const fs::path f18 = temp / "clipboard_018.2dc";
+
+    const bool e8 = fs::exists(f8);
+    const bool e18 = fs::exists(f18);
+
+    qDebug() << "clipboard_008.2dc: " << (e8 ? "exists" : "missing");
+    qDebug() << "clipboard_018.2dc: " << (e18 ? "exists" : "missing");
+
+    return e8 && e18;
+}
+
 CWAPI3D_PLUGIN bool plugin_x64_init(CwAPI3D::ControllerFactory *factory)
 {
     qDebug() << "Hello from plugin_x64_init";
-
-    // QPointer<MyDialog> dlg = new MyDialog();
-    // dlg->setAttribute(Qt::WA_DeleteOnClose);
-    //
-    // HWND hwnd = factory->getUtilityController()->get3DHWND();
-    // const auto lHostWindow = dynamic_cast<QMainWindow *>(QWidget::find(reinterpret_cast<WId>(hwnd)));
-    // dlg->setParent(lHostWindow);
-    // lHostWindow->addDockWidget(Qt::RightDockWidgetArea, dlg);
-    // dlg->show();
-    //
-    //
-    // // QObject::connect(dlg,
-    // //                  &QDialog::accepted,
-    // //                  [dlg]()
-    // //                  {
-    // //                      qDebug() << "User entered:" << (dlg ? dlg->text() : QString());
-    // //                  });
-    // dlg->show();
-    //
-    // return false;
 
     const auto action = buildAndQuerySelectedMenuAction(factory->getMenuController());
     if (action == Action::EXIT) {
@@ -74,26 +73,35 @@ CWAPI3D_PLUGIN bool plugin_x64_init(CwAPI3D::ControllerFactory *factory)
         constexpr std::string_view iniFileName = "nesting.ini";
         const auto presettingPath = std::filesystem::path(userProfilePath) / iniDirName / iniFileName;
 
-        qDebug() << "Using presetting file: " << presettingPath.string();
+        qDebug() << "Using presetting file: " << QString::fromStdString(presettingPath.string());
 
-        // factory->getUtilityController()->printToConsole(std::format(L"Using presetting file: {}\n",
-        //     presettingPath.wstring()).c_str());
-
-        factory->getShopDrawingController()->exportWallWithClipboardAndPresetting(8,
-                                     selectedElementIDs,
-                                     presettingPath.wstring().c_str());
+        constexpr int clipBoardNr8 = 8;
+        qDebug() << "Start exporting wall with clipboard nr: " << clipBoardNr8;
+        factory->getShopDrawingController()->exportWallWithClipboardAndPresetting(clipBoardNr8,
+            selectedElementIDs,
+            presettingPath.wstring().c_str());
+        qDebug() << "End exporting wall with clipboard nr: " << clipBoardNr8;
 
 
         constexpr std::string_view iniDirNameNesting = "esz_nesting";
         const auto presettingPathNesting = std::filesystem::path(userProfilePath) / iniDirNameNesting / iniFileName;
 
-        factory->getUtilityController()->printToConsole(std::format(L"Using presetting file: {}\n",
-            presettingPath.wstring()).c_str());
+        qDebug() << "Using presetting file: " << QString::fromStdString(presettingPath.string());
 
-        factory->getShopDrawingController()->exportWallWithClipboardAndPresetting(18,
-                                     selectedElementIDs,
-                                     presettingPathNesting.wstring().c_str());
+        constexpr int clipBoardNr18 = 18;
+        qDebug() << "Start exporting wall with clipboard nr: " << clipBoardNr18;
+        factory->getShopDrawingController()->exportWallWithClipboardAndPresetting(clipBoardNr18,
+            selectedElementIDs,
+            presettingPathNesting.wstring().c_str());
+        qDebug() << "End exporting wall with clipboard nr: " << clipBoardNr18;
     }
+
+    std::this_thread::sleep_for(std::chrono::seconds(2));
+    if (!temp_clipboards_exist()) {
+        qWarning() << "Temp clipboards do not exist!";
+        factory->getUtilityController()->printMessage(L"Failed to create shop drawings. Please check the log.");
+    }
+    factory->getUtilityController()->printMessage(L"Shop drawings created successfully.");
     return true;
 }
 

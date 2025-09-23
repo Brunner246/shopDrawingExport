@@ -31,7 +31,6 @@ MyDialog::MyDialog(QWidget* parent)
     mainLayout->addLayout(formLayout);
     mainLayout->addWidget(m_buttonBox);
 
-    // Default: OK enabled only if there is some text (optional; comment out if not needed)
     connect(m_lineEdit, &QLineEdit::textChanged, this, [this](const QString& s) {
         m_buttonBox->button(QDialogButtonBox::Ok)->setEnabled(!s.trimmed().isEmpty());
     });

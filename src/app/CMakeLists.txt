@@ -1,4 +1,4 @@
-project(app)
+project(shopDrawingExport)
 
 find_package(Qt${QT_VERSION} COMPONENTS
         Core
