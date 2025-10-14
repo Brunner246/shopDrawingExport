@@ -1,10 +1,5 @@
 project(shopDrawingExport)
 
-find_package(Qt${QT_VERSION} COMPONENTS
-        Core
-        Widgets
-        REQUIRED)
-
 add_library(${PROJECT_NAME}
         SHARED
         library.cpp
@@ -16,15 +11,8 @@ message(STATUS "Includes dir: ${CMAKE_CURRENT_SOURCE_DIR}/../../external/include
 
 target_include_directories(${PROJECT_NAME}
         PRIVATE
-        ${CMAKE_CURRENT_SOURCE_DIR}/../presentation
+#        ${CMAKE_CURRENT_SOURCE_DIR}/../presentation
         ${CMAKE_CURRENT_SOURCE_DIR}/../../external/includes
-)
-
-
-target_link_libraries(${PROJECT_NAME} PRIVATE
-        Qt${QT_VERSION}::Core
-        Qt${QT_VERSION}::Widgets
-        Test::Presentation
 )
 
 
