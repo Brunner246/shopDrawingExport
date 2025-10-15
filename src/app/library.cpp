@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <filesystem>
 #include <cwapi3d/CwAPI3D.h>
 
@@ -5,6 +6,7 @@
 #include <iostream>
 #include <optional>
 #include <ranges>
+#include <set>
 #include <thread>
 
 enum class Action : uint8_t
@@ -67,12 +69,18 @@ void exportShopDrawingWithClipboardAndPresetting(CwAPI3D::ControllerFactory *fac
 
 CwAPI3D::Interfaces::ICwAPI3DElementIDList *getAllNestingParents(CwAPI3D::ControllerFactory *factory)
 {
-    const auto result = factory->createEmptyElementIDList();
-
     const auto elementIDs = factory->getElementController()->getAllIdentifiableElementIDs();
+    std::set<CwAPI3D::elementID> lIds;
     for (decltype(elementIDs->count()) il{0}; il < elementIDs->count(); ++il) {
-        const auto nestingParent = factory->getAttributeController()->isNestingParent(elementIDs->at(il));
-        result->append(nestingParent);
+        if (const auto nestingParent = factory->getElementController()->getNestingParentId(elementIDs->at(il));
+            factory->getElementController()->checkElementId(nestingParent)) {
+            lIds.insert(nestingParent);
+        }
+    }
+
+    const auto result = factory->createEmptyElementIDList();
+    for (const auto &id : lIds) {
+        result->append(id);
     }
 
     return result;
@@ -99,6 +107,12 @@ CWAPI3D_PLUGIN bool plugin_x64_init(CwAPI3D::ControllerFactory *factory)
                                 ? getAllNestingParents(factory)
                                 : getActiveElements(factory);
 
+    assert(!elementIDs->empty());
+    factory->getUtilityController()->printMessage(std::format(L"Processing {} elements{}",
+                                                              elementIDs->count(),
+                                                              action == Action::CREATE_DRAWING_NESTING_PARENTS
+                                                                  ? L" (nesting parents)"
+                                                                  : L" (active elements)").c_str());
 
     const std::filesystem::path presettingPath = generatePresettingPathEszWall(factory->getUtilityController());
 
