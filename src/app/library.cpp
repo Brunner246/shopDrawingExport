@@ -1,7 +1,6 @@
 #include <filesystem>
 #include <cwapi3d/CwAPI3D.h>
 
-
 #include <utility>
 #include <iostream>
 #include <optional>
@@ -10,13 +9,16 @@
 
 enum class Action : uint8_t
 {
-    CREATE_DRAWING = 1,
+    CREATE_DRAWING_ACTIVE_ELEMENTS = 1,
+    CREATE_DRAWING_NESTING_PARENTS,
     EXIT,
 };
+
 std::optional<std::wstring> toString(const Action type)
 {
     switch (type) {
-    case Action::CREATE_DRAWING: return L"CREATE_DRAWING";
+    case Action::CREATE_DRAWING_ACTIVE_ELEMENTS: return L"draw active elements";
+    case Action::CREATE_DRAWING_NESTING_PARENTS: return L"draw nesting parents";
     case Action::EXIT: return L"EXIT";
     }
     return std::nullopt;
@@ -25,7 +27,8 @@ std::optional<std::wstring> toString(const Action type)
 Action buildAndQuerySelectedMenuAction(CwAPI3D::Interfaces::ICwAPI3DMenuController *menuController)
 {
     CwAPI3D::Interfaces::ICwAPI3DMenu *menu = menuController->createMenu();
-    menu->addButtonMenuItem(toString(Action::CREATE_DRAWING)->data());
+    menu->addButtonMenuItem(toString(Action::CREATE_DRAWING_ACTIVE_ELEMENTS)->data());
+    menu->addButtonMenuItem(toString(Action::CREATE_DRAWING_NESTING_PARENTS)->data());
     menu->addButtonMenuItem(L"");
     menu->addButtonMenuItem(toString(Action::EXIT)->data());
     menuController->displayMenu(menu);
@@ -34,41 +37,85 @@ Action buildAndQuerySelectedMenuAction(CwAPI3D::Interfaces::ICwAPI3DMenuControll
     return static_cast<Action>(selectedItemIndex);
 }
 
+std::filesystem::path generatePresettingPathEszWall(CwAPI3D::UtilityController *utilityCtrl)
+{
+    const auto userProfilePath = utilityCtrl->get3DUserprofilPath()->narrowData();
+    constexpr std::string_view iniDirName = "esz_wall";
+    constexpr std::string_view iniFileName = "nesting.ini";
+
+    return std::filesystem::path(userProfilePath) / iniDirName / iniFileName;
+}
+
+std::filesystem::path generatePresettingPathEszNesting(CwAPI3D::UtilityController *utilityCtrl)
+{
+    const auto userProfilePath = utilityCtrl->get3DUserprofilPath()->narrowData();
+    constexpr std::string_view iniDirName = "esz_nesting";
+    constexpr std::string_view iniFileName = "nesting.ini";
+
+    return std::filesystem::path(userProfilePath) / iniDirName / iniFileName;
+}
+
+void exportShopDrawingWithClipboardAndPresetting(CwAPI3D::ControllerFactory *factory,
+                                                 CwAPI3D::Interfaces::ICwAPI3DElementIDList *const selectedElementIDs,
+                                                 const std::wstring &presettingPath,
+                                                 const int clipBoardNr8)
+{
+    factory->getShopDrawingController()->exportWallWithClipboardAndPresetting(clipBoardNr8,
+                                                                              selectedElementIDs,
+                                                                              presettingPath.c_str());
+}
+
+CwAPI3D::Interfaces::ICwAPI3DElementIDList *getAllNestingParents(CwAPI3D::ControllerFactory *factory)
+{
+    const auto result = factory->createEmptyElementIDList();
+
+    const auto elementIDs = factory->getElementController()->getAllIdentifiableElementIDs();
+    for (decltype(elementIDs->count()) il{0}; il < elementIDs->count(); ++il) {
+        const auto nestingParent = factory->getAttributeController()->isNestingParent(elementIDs->at(il));
+        result->append(nestingParent);
+    }
+
+    return result;
+}
+
+CwAPI3D::Interfaces::ICwAPI3DElementIDList *getAllNestingRawParts(CwAPI3D::ControllerFactory *factory)
+{
+    return factory->getElementController()->getAllNestingRawParts();
+}
+
+CwAPI3D::Interfaces::ICwAPI3DElementIDList *getActiveElements(CwAPI3D::ControllerFactory *factory)
+{
+    return factory->getElementController()->getActiveIdentifiableElementIDs();
+}
+
 CWAPI3D_PLUGIN bool plugin_x64_init(CwAPI3D::ControllerFactory *factory)
 {
     const auto action = buildAndQuerySelectedMenuAction(factory->getMenuController());
     if (action == Action::EXIT) {
         return false;
     }
-    if (action == Action::CREATE_DRAWING) {
-        const auto selectedElementIDs = factory->getElementController()->getActiveIdentifiableElementIDs();
 
-        const auto userProfilePath = factory->getUtilityController()->get3DUserprofilPath()->narrowData();
-        constexpr std::string_view iniDirName = "esz_wall";
-        constexpr std::string_view iniFileName = "nesting.ini";
-        const auto presettingPath = std::filesystem::path(userProfilePath) / iniDirName / iniFileName;
-
-        std::cout << "Using presetting file: " << presettingPath.string() << std::endl;
-
-        constexpr int clipBoardNr8 = 8;
-        std::cout << "Start exporting wall with clipboard nr: " << clipBoardNr8;
-        factory->getShopDrawingController()->exportWallWithClipboardAndPresetting(clipBoardNr8,
-            selectedElementIDs,
-            presettingPath.wstring().c_str());
-        std::cout << "End exporting wall with clipboard nr: " << clipBoardNr8;
+    const auto elementIDs = action == Action::CREATE_DRAWING_NESTING_PARENTS
+                                ? getAllNestingParents(factory)
+                                : getActiveElements(factory);
 
 
-        constexpr std::string_view iniDirNameNesting = "esz_nesting";
-        const auto presettingPathNesting = std::filesystem::path(userProfilePath) / iniDirNameNesting / iniFileName;
+    const std::filesystem::path presettingPath = generatePresettingPathEszWall(factory->getUtilityController());
 
-        std::cout << "Using presetting file: " << (presettingPath.string());
+    constexpr int clipBoardNr8 = 8;
+    exportShopDrawingWithClipboardAndPresetting(factory,
+                                                elementIDs,
+                                                presettingPath.wstring(),
+                                                clipBoardNr8);
 
-        constexpr int clipBoardNr18 = 18;
-        std::cout << "Start exporting wall with clipboard nr: " << clipBoardNr18;
-        factory->getShopDrawingController()->exportWallWithClipboardAndPresetting(clipBoardNr18,
-            selectedElementIDs,
-            presettingPathNesting.wstring().c_str());
-        std::cout << "End exporting wall with clipboard nr: " << clipBoardNr18;
-    }
+    const auto presettingPathNesting = generatePresettingPathEszNesting(factory->getUtilityController());
+
+    constexpr int clipBoardNr18 = 18;
+    exportShopDrawingWithClipboardAndPresetting(factory,
+                                                elementIDs,
+                                                presettingPathNesting.wstring(),
+                                                clipBoardNr18
+    );
+
     return true;
 }
